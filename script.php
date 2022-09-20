@@ -1,189 +1,167 @@
 <?php
 
 include_once 'includes/dbhandler.inc.php';
+echo "\nWelcome {$dbUsername}!";
 
 $exit = false;
 
 while ($exit == false) {
+    // check for user created tables
     $result = mysqli_query($conn, "SHOW TABLES;");
-    $resultCheck = mysqli_num_rows($result);
-
-    if ($resultCheck > 0) {
-
-        $table_names = array_map('reset', mysqli_fetch_all($result));
-        echo "\nOptions: \n  1: Read a table\n  2: Input your own SQL query\n  3: Add a new table\n  0: Exit\n\n";
-        $input = readline("What would you like to do?  (give option number)  ");
-        $option = intval( $input );
-        echo "\n\n";
-        switch ($option) {
-
-            case 0:
-
-                $exit = true;
-                break;
-
-            case 1:
-                echo "    Option 1:\n\n        Available Tables: \n";
-                foreach ($table_names as $tbl_name) {
-                  echo "          {$tbl_name}\n";
-                }
-                $checked = false;
-                do {
-                    if ($checked) {
-                        echo "\n'{$chosen_table_name}' is not an option.\n";
-                    }
-                    echo "\n";
-                    $chosen_table_name = strtolower(readline("    Which table would you like to see?  "));
-                    $checked = true;
-                } while (!in_array($chosen_table_name, $table_names));
-
-                $sql = "SELECT * FROM {$chosen_table_name};";
-                $result = mysqli_query($conn, $sql);
-                $resultCheck = mysqli_num_rows($result);
-
-                if ($resultCheck > 0) {
-                    echo "///////////////////////////////////////////////////////////////////////////\n";
-                    while ($row = mysqli_fetch_assoc($result)) {
-                        echo "_______________________________________________________________________\n";
-                        foreach ($row as $key => $value) {
-                            echo "{$key}:      {$value}\n............................................\n";
-                        }
-                        echo "_______________________________________________________________________\n";
-                    }
-                    echo "///////////////////////////////////////////////////////////////////////////\n";
-                } else {
-                    echo "\nThe table you have chosen is empty";
-                }
-                break;
-
-            case 2:
-
-                echo "\nInput your SQL, you may use multiple lines\n";
-                $sql = '';
-                $input_line = 'a';
-
-                while ( trim( $input_line )[-1] != ';' ) {
-                    $input_line = readline(  );
-                    $sql .="{$input_line} ";
-                }
-                echo $sql;
-
-                $result = mysqli_query($conn, $sql);
-                printf("%s\n", mysqli_info($conn));
-                $resultCheck = mysqli_num_rows($result);
-
-
-                if (mysqli_warning_count($conn)) {
-                    if ($result = mysqli_query($conn, "SHOW WARNINGS;")) {
-                        $row = mysqli_fetch_row($result);
-                        printf("%s (%d): %s\n", $row[0], $row[1], $row[2]);
-                        mysqli_free_result($result);
-                    }
-                } else {
-                    if ($resultCheck > 0) {
-                        while ($row = mysqli_fetch_assoc($result)) {
-                            echo "______________________________________________________\n";
-                            foreach ($row as $key => $value) {
-                                echo "{$key}:      {$value}\n............................................\n";
-                            }
-                            echo "______________________________________________________\n";
-                        }
-                    } else {
-                        echo "table is empty, the name is misspelled or does not exist - make sure to use the plural and all upper-/lowercase";
-                    }
-                }
-                exit;
-
-                break;
-            case 3:
-
-                // list tables
-                echo "    Option 3:\n\n        Available Tables: \n";
-                foreach ($table_names as $tbl_name) {
-                  echo "          {$tbl_name}\n";
-                }
-                echo "\n";
-                // Ask which table?
-                // check if in table names
-                $checked = false;
-                do {
-                    if ($checked) {
-                        echo "\n    '{$chosen_table_name}' is not an option.\n";
-                    }
-                    echo "\n";
-                    $chosen_table_name = strtolower(readline("    Which table would you like to make a new entry in?  "));
-                    $checked = true;
-                } while (!in_array($chosen_table_name, $table_names));
-
-                // get column names
-                $sql = "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{$chosen_table_name}' AND COLUMN_KEY = '';";
-                $result = mysqli_query($conn, $sql);
-                $resultCheck = mysqli_num_rows($result);
-
-                // iterate and save input in hash
-                if ($resultCheck > 0) {
-                  $column_names = array_map('reset', mysqli_fetch_all($result));
-                  $new_entry_values = array();
-                  foreach ($column_names as $clm_name) {
-                      echo "\n";
-                      array_push($new_entry_values, mysqli_real_escape_string($conn, readline("Assign {$clm_name}:  ")));
-                      // $new_entry[$clm_name] = mysqli_real_escape_string(readline("Assign {$clm_name}:  "));
-                  }
-                }
-                // escape input strings
-                $columns_string = implode("', '", $column_names);
-                $values_string = implode("', '", $new_entry_values);
-                $sql = "INSERT INTO {$chosen_table_name} ('{$columns_string}') VALUES ('$values_string');";
-                $result = mysqli_query($conn, $sql);
-
-                if (!$result) {
-                    printf("%s\n", mysqli_info($conn));
-                    if (mysqli_warning_count($conn)) {
-                        if ($result = mysqli_query($conn, "SHOW WARNINGS;")) {
-                            while ($row = mysqli_fetch_row($result)) {
-                                printf("%s (%d): %s\n", $row[0], $row[1], $row[2]);
-                            }
-                        }
-                    }
-                } else {
-                  echo "Your Entry was successfully created!";
-                }
-                break;
-        }
-    } else {
-        echo "Your database has no tables yet, add a first table:\n";
-
+    $tableCheck = mysqli_num_rows($result);
+    if (!$tableCheck > 0) {
+        echo "There are no tables in your database yet - Add one";
+        perform_sql_query($conn);
+        break;
     }
+    $tableNames = array_map('reset', mysqli_fetch_all($result));
+
+    // main menu
+    echo "\n\nOptions: \n  1: Read a table\n  2: Input your own SQL query\n  3: Make an Entry to a table\n  0: Exit\n\n";
+    $input = readline("What would you like to do?  (give option number) ");
+    $option = intval( $input );
+
+    switch ($option) {
+
+        case 0:
+            echo "    exit\n\n    Goodbye!";
+            $exit = true;
+            break;
+
+        case 1:
+            read_db_table($conn, $tableNames);
+            break;
+
+        case 2:
+            perform_sql_query($conn);
+            break;
+
+        case 3:
+            make_new_entry($conn, $tableNames);
+            break;
+      }
 }
 
+function display($result)
+{
+  echo "/////////////////////////////////////////////////////////////////////////////////\n";
+  while ($row = mysqli_fetch_assoc($result)) {
+      echo "_________________________________________________________________________________\n";
+      foreach ($row as $key => $value) {
+          $length = 25 - strlen($key);
+          $whitespace = "";
+          for ($i = 1; $i <= $length; $i++) {
+              $whitespace .= " ";
+          }
+          echo "{$key}:{$whitespace}{$value}\n..........................................................................\n";
+      }
+      echo "_________________________________________________________________________________\n";
+  }
+  echo "/////////////////////////////////////////////////////////////////////////////////\n";
+}
 
-#________________________________________________________________________________
-#________________________________________________________________________________
-#________________________________________________________________________________
+function get_table_name_input($tableNames)
+{
+  // list tables
+  echo "    Available Tables: \n";
+  foreach ($tableNames as $i => $tblName) {
+    ++$i;
+    echo "      {$i}: {$tblName}\n";
+  }
+  echo "\n";
 
-#read_table_function:
+  // check if valid table choice
+  $checked = false;
+  do {
+      if ($checked) {
+          echo "        '{$input}' is not an option\n\n";
+      }
+      $input = readline("    Which table would you like to access?  ");
+      if (is_numeric($input)) {
+          $chosenTableName = $tableNames[intval($input)-1];
+      } else {
+          $chosenTableName = strtolower($input);
+      }
+      $checked = true;
+  } while (!in_array($chosenTableName, $tableNames));
+  return $chosenTableName;
+}
 
-// $table_name = readline("Which table would you like to see?  ");
+function read_db_table($conn, $tableNames)
+{
+  echo "    Read Table\n\n";
+  $chosenTableName = get_table_name_input($tableNames);
+  $sql = "SELECT * FROM {$chosenTableName};";
+  $result = mysqli_query($conn, $sql);
+  $resultCheck = mysqli_num_rows($result);
+  if ($resultCheck > 0) {
+      display($result);
+  } else {
+      echo "\n    The table you have chosen is empty";
+  }
+}
 
-// $sql = "SELECT * FROM {$table_name};";
-// $result = mysqli_query($conn, $sql);
-// $resultCheck = mysqli_num_rows($result);
+function perform_sql_query($conn)
+{
+  echo "\n\n    Input your SQL, you may use multiple lines\n\n";
+  $sql = '';
+  $input_line = 'a';
+  while ( trim( $input_line )[-1] != ';' ) {
+      $input_line = readline(  );
+      $sql .="{$input_line} ";
+  }
+  $result = mysqli_query($conn, $sql);
+  if (!$result) {
+      printf("\nERROR: %s\nYour query was NOT successfully performed", mysqli_error($conn));
+  } else {
+      echo "\n    Your query was successfully performed!\n\n";
+      $resultCheck = mysqli_num_rows($result);
+      if ($resultCheck > 0) {
+          display($result);
+      }
+  }
+}
 
-// if ($resultCheck > 0) {
-//   while ($row = mysqli_fetch_assoc($result)) {
-//     echo "______________________________________________________\n";
-//     foreach ($row as $key => $value) {
-//       echo $key;
-//       echo ":  ";
-//       echo $value;
-//       echo "\n............................................\n";
-//     }
-//     echo "______________________________________________________\n";
-//   }
-// } else {
-//   echo "table name misspelled or does not exist - make sure to use the plural and all upper-/lowercase";
-// }
+function make_new_entry($conn, $tableNames)
+{
+  // Get table name
+  echo "    Make a new entry\n\n";
+  $chosenTableName = get_table_name_input($tableNames);
 
-#________________________________________________________________________________
-#________________________________________________________________________________
-#________________________________________________________________________________
+  // get column names
+  $sql = "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{$chosenTableName}' AND COLUMN_KEY = '';";
+  $result = mysqli_query($conn, $sql);
+  $resultCheck = mysqli_num_rows($result);
+
+  // iterate and save input in hash
+  if ($resultCheck > 0) {
+      $columnNames = array_map('reset', mysqli_fetch_all($result));
+      $newEntryValues = array();
+      echo "        New entry for {$chosenTableName}\n\n        Assign values\n";
+      foreach ($columnNames as $clmName) {
+          array_push($newEntryValues, mysqli_real_escape_string($conn, readline("          {$clmName}: ")));
+      }
+      echo "\n";
+  }
+
+  // check back and confirm
+  $confirm = strtolower(readline("        Are you sure? Press Y to confirm "));
+  if (!$confirm == 'y') {
+    echo "            Aborted";
+    return;
+  } else {
+    echo "            Confirmed";
+  }
+
+  // escape input strings
+  $columnsString = implode(", ", $columnNames);
+  $valuesString = implode("', '", $newEntryValues);
+  $sql = "INSERT INTO {$chosenTableName} ({$columnsString}) VALUES ('$valuesString');";
+
+  // perform query
+  if (!mysqli_query($conn, $sql)) {
+      printf("\nERROR: %s\n\n            Your entry was NOT created", mysqli_error($conn));
+  } else {
+    echo "\n\n            Your entry was successfully created!";
+  }
+}

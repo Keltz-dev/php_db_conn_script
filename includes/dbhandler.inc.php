@@ -1,14 +1,13 @@
 <?php
 
 $dbServername = "localhost";
-$dbUsername = "db_user";
-$dbPassword = "password";
-$dbName = "imaginary_db";
+$dbName = readline("What is the name of your database?  ");
+$dbUsername = readline("What is your username?  ");
+$dbPassword = readline("What is your password?  ");
 
-// $dbServername = "localhost";
-// $dbUsername = readline("What is your username?  ");
-// $dbPassword = readline("What is the corresponding password?  ");
-// $dbName = readline("What is the name of your database?  ");
+// $dbUsername = "db_user";
+// $dbPassword = "password";
+// $dbName = "imaginary_db";
 
 $conn = mysqli_connect($dbServername, $dbUsername, $dbPassword, $dbName);
 echo mysqli_connect_error();
